@@ -3,7 +3,7 @@
 #Enviroment initialization
 #for output coordinating
 #Change the location of groovy accordingly.
-
+$SECONDS=0
 verbose=false
 file_list="files.list"
 arg_counter=0
@@ -44,7 +44,10 @@ done
 echo "Threads:   $threads"
 echo "File List: $file_list"
 echo "Verbose:   $verbose"
-export JYPATH=~/psimmerl/run_based_monitoring/groovy_codes/rf/:~/psimmerl/run_based_monitoring/groovy_codes/ft/
+#export JYPATH=~/psimmerl/run_based_monitoring/groovy_codes/rf/:~/psimmerl/run_based_monitoring/groovy_codes/ft/
+export JYPATH=/home/kenjo/clas12/run_based_monitoring/groovy_codes/rf/:/home/kenjo/clas12/run_based_monitoring/groovy_codes/ft/
+
+
 export groovy=run-groovy
 #Output directory names
 mkdir -p rga_pass0
@@ -137,6 +140,7 @@ $script $file_names"
 		#$groovy ../groovy_codes/$script.groovy `grep "$name" ../files.list`
 		#echo "$output">>$LOG
 		#fi
+
 	done
 done
 echo -e "\nScript List Generated\nBeginning Groovy Processes\n"
@@ -144,21 +148,21 @@ echo -e "\nScript List Generated\nBeginning Groovy Processes\n"
 
 if $verbose
 then
-	echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index sh -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" | tee "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} | tee -a "$1.out";' sh | tee $LOG
+	echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index bash -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" |& tee -i "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} |& tee -i -a "$1.out"; sed -i "1i$1 $(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))" "$1.out";' sh | tee $LOG
 
 else
-	echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index sh -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" | tee "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} | tee -a "$1.out";' sh | grep -i -E -- "Script:|Core-id:|error|warning|caught|fail|failed|failure|exception"
+	echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index bash -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" |& tee -i "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} |& tee -i -a "$1.out"; sed -i "1i$1 $(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))" "$1.out";' sh | grep -i -E -- "Script:|Core-id:|file :|ERROR|WARNING" #caught|fail|failed|failure|exception"
 
 fi
 
-out_dir=(band bmtbst central cnd ctof cvt dc ec forward ft ftof htcc ltcc rf trigger particle_mass_ctof_and_ftof)
-dir_array=out_dir[@]
-for dir in ${!dir_array}
+logs=$(find -type f -name "*.out")
+for file in $logs
 do
-	mkdir -p "$dir"
+	cat $file >> $LOG
+	sed -i "1i$(head -n 1 $file)" $LOG
+	rm $file
 done
-find -type f -name "*.out" | xargs cat >> $LOG 
-find -type f -name "*.out" | xargs rm 
+
 mv bmt_*.hipo bmtbst/
 mv bst_*.hipo bmtbst/
 mv cen_*.hipo central/
@@ -179,5 +183,11 @@ mv ctof/*m2* particle_mass_ctof_and_ftof/
 mv ftof/*m2* particle_mass_ctof_and_ftof
 mv band_* band/
 
+elapsed="$(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))"
+
+echo "Total Time $elapsed"
+sed -i "1iTotal Time $elapsed" $LOG
+
 cd ..
 cp -r rga_pass0 /group/clas/www/clas12mon/html/hipo/paul
+
