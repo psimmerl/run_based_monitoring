@@ -3,39 +3,54 @@
 #Enviroment initialization
 #for output coordinating
 #Change the location of groovy accordingly.
-$SECONDS=0
-verbose=false
+#$SECONDS=0
+keywords="Script:|error|warning"
 file_list="files.list"
 arg_counter=0
 threads=1
 skip_next_arg=false
 for arg in "$@"
 do	
-	arg_counter=$((arg_counter + 1))
+	arg_counter=$((arg_counter + 1)); next=$((arg_counter+1));
 	if [ "$arg" == "-h" ] || [ "$arg" == "--help" ] 
 	then
+		echo "run.sh - generates the rga_pass0 folder with HIPO files"
+		echo "         a log will be saved as log.out in rga_pass0/"
+		echo ""
+		echo -e "usage: ./run.sh -h"
+		echo -e "usage: ./run.sh -v [-f file] [-p num]"
+		echo -e "usage: ./run.sh [-k 'string1|string2|...'] [-f file] [-p num]"
+		echo "" 
 		echo "Options:"
-		echo -e "-h\t: Prints this message (also --help)."
-		echo -e "-v\t: Prints output with maximum verbosity (default is only  warnings and errors)."
-		echo -e "-f\t: Allows user to define the input file list (default file is files.list)."
-		echo -e "-p\t: Allows user to define the number of scripts that can be run in parallel (default is one thread)." 
-
-		echo -e "\nA full log with the complete groovy script output is saved to log.out"
+		echo -e "  -h\t: prints this message (also --help)"
+		echo -e "  -v\t: prints output with maximum verbosity"
+		echo -e "  -k\t: defines regex matching to print specific lines"
+		echo -e "    \t    (default is 'Script:|error|warning')"
+		echo -e "  -f\t: defines the input file list "
+		echo -e "    \t    (default is files.list)"
+		echo -e "  -p\t: defines the number of scripts that are run in parallel "
+		echo -e "    \t    (default is 1)" 
 		exit
 	elif [ "$arg" == "-v" ] 
 	then
-		verbose=true
+		keywords="$"
+	elif [ "$arg" == "-k" ]
+        then
+                keywords="Script:|${!next}"
+                skip_next_arg=true
+
 	elif [ "$arg" == "-f" ] 
 	then
-		next=$((arg_counter+1)); file_list="${!next}"
+		file_list="${!next}"
 		skip_next_arg=true
 	elif [ "$arg" == "-p" ] 
 	then
-		next=$((arg_counter+1)); threads="${!next}"
+		threads="${!next}"
 		skip_next_arg=true
 	elif ! $skip_next_arg
 	then
-		echo "Command $arg not recognized. For help use -h."
+		echo "Command $arg not recognized"
+		echo "Try './run -h' for more information"
 		exit
 	else
 		skip_next_arg=false
@@ -43,17 +58,18 @@ do
 done
 echo "Threads:   $threads"
 echo "File List: $file_list"
-echo "Verbose:   $verbose"
+echo "Keywords:   $keywords"
 #export JYPATH=~/psimmerl/run_based_monitoring/groovy_codes/rf/:~/psimmerl/run_based_monitoring/groovy_codes/ft/
 export JYPATH=/home/kenjo/clas12/run_based_monitoring/groovy_codes/rf/:/home/kenjo/clas12/run_based_monitoring/groovy_codes/ft/
 
 
 export groovy=run-groovy
 #Output directory names
+rm -rf rga_pass0
 mkdir -p rga_pass0
 cd rga_pass0
 
-LOG=../log.out
+LOG=log.out
 echo > $LOG
 
 #subdirectory names
@@ -146,14 +162,7 @@ done
 echo -e "\nScript List Generated\nBeginning Groovy Processes\n"
 #echo "$full_list"
 
-if $verbose
-then
-	echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index bash -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" |& tee -i "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} |& tee -i -a "$1.out"; sed -i "1i$1 $(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))" "$1.out";' sh | tee $LOG
-
-else
-	echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index bash -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" |& tee -i "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} |& tee -i -a "$1.out"; sed -i "1i$1 $(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))" "$1.out";' sh | grep -i -E -- "Script:|Core-id:|file :|ERROR|WARNING" #caught|fail|failed|failure|exception"
-
-fi
+echo "$full_list" | xargs -L 1 -P $threads --process-slot-var=index bash -c 'echo -e "\nScript: $1 \nFile: ${@:2} \nProcess-id: $$ \nCore-id: $index" |& tee -i "$1.out"; $groovy ../groovy_codes/$1.groovy ${@:2} |& tee -i -a "$1.out"; sed -i "1i$1 $(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))" "$1.out";' sh | grep -i -E -- $keywords #caught|fail|failed|failure|exception"
 
 logs=$(find -type f -name "*.out")
 for file in $logs
@@ -185,9 +194,9 @@ mv band_* band/
 
 elapsed="$(($SECONDS/3600)):$(($SECONDS%3600/60)):$(($SECONDS%60))"
 
-echo "Total Time $elapsed"
+#echo "Total Time $elapsed"
 sed -i "1iTotal Time $elapsed" $LOG
 
-cd ..
-cp -r rga_pass0 /group/clas/www/clas12mon/html/hipo/paul
+#cd ..
+#cp -r rga_pass0 /group/clas/www/clas12mon/html/hipo/paul
 
