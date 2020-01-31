@@ -9,6 +9,7 @@ file_list="files.list"
 arg_counter=0
 threads=1
 skip_next_arg=false
+hipo_dir="rga_pass0"
 for arg in "$@"
 do	
 	arg_counter=$((arg_counter + 1)); next=$((arg_counter+1));
@@ -18,8 +19,8 @@ do
 		echo "         a log will be saved as log.out in rga_pass0/"
 		echo ""
 		echo -e "usage: ./run.sh -h"
-		echo -e "usage: ./run.sh -v [-f file] [-p num]"
-		echo -e "usage: ./run.sh [-k 'string1|string2|...'] [-f file] [-p num]"
+		echo -e "usage: ./run.sh -v [-f file] [-p num] [-d dir]"
+		echo -e "usage: ./run.sh [-k 'string1|string2|...'] [-f file] [-p num] [-d dir]"
 		echo "" 
 		echo "Options:"
 		echo -e "  -h\t: prints this message (also --help)"
@@ -27,9 +28,11 @@ do
 		echo -e "  -k\t: defines regex matching to print specific lines"
 		echo -e "    \t    (default is 'Script:|error|warning')"
 		echo -e "  -f\t: defines the input file list "
-		echo -e "    \t    (default is files.list)"
+		echo -e "    \t    (default is 'files.list')"
 		echo -e "  -p\t: defines the number of scripts that are run in parallel "
 		echo -e "    \t    (default is 1)" 
+		echo -e "  -d\t: defines parent directory for output files"
+		echo -e "    \t    (default is 'rga_pass0')"
 		exit
 	elif [ "$arg" == "-v" ] 
 	then
@@ -47,6 +50,11 @@ do
 	then
 		threads="${!next}"
 		skip_next_arg=true
+	elif [ "$arg" == "-d" ] 
+        then
+                hipo_dir="${!next}"
+                skip_next_arg=true
+	
 	elif ! $skip_next_arg
 	then
 		echo "Command $arg not recognized"
@@ -56,18 +64,25 @@ do
 		skip_next_arg=false
 	fi		
 done
+if test ! -f "$file_list"
+then
+	echo "File '$file_list' does not exist."
+	echo "Try './run.sh -h' for more information"
+	exit
+fi
 echo "Threads:   $threads"
 echo "File List: $file_list"
-echo "Keywords:   $keywords"
+echo "Keywords:  $keywords"
+echo "Directory: $hipo_dir"
 #export JYPATH=~/psimmerl/run_based_monitoring/groovy_codes/rf/:~/psimmerl/run_based_monitoring/groovy_codes/ft/
 export JYPATH=/home/kenjo/clas12/run_based_monitoring/groovy_codes/rf/:/home/kenjo/clas12/run_based_monitoring/groovy_codes/ft/
 
 
 export groovy=run-groovy
 #Output directory names
-rm -rf rga_pass0
-mkdir -p rga_pass0
-cd rga_pass0
+rm -rf $hipo_dir
+mkdir -p $hipo_dir
+cd $hipo_dir
 
 LOG=log.out
 echo > $LOG
